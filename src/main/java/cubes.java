@@ -77,7 +77,7 @@ public class cubes {
                 System.out.println("Please enter the solve time for " + solver);
                 float newTime = s.nextFloat();
                 //calls different function for new users
-                addNewSovlerTime(solver, newTime);
+                addNewSolverTime(solver, newTime);
                 System.out.println(solver + " has been added with a time of " + newTime);
             }
             //get input from user for entering new times or solvers
@@ -86,14 +86,18 @@ public class cubes {
         }
     }
     //new solver and time function
-    private static void addNewSovlerTime(String solver, float newTime) {
+    private static void addNewSolverTime(String solver, float newTime) {
         //open connection with try block
         try (Connection conn = DriverManager.getConnection(DB_CONNECTION_URL, USER, PASSWORD);
              Statement statement = conn.createStatement()) {
 
-            String query = "INSERT INTO cubes (cube_solver, solve_time) VALUES ('" + solver +"', " + newTime + ")";
-            statement.execute(query);
+            String prepInsertSQL = "INSERT INTO cubes (cube_solver, solve_time) VALUES ( ? , ? )";
+            PreparedStatement psInsert = conn.prepareStatement(prepInsertSQL);
+            psInsert.setString(1, solver);
+            psInsert.setFloat(2, newTime);
+            psInsert.executeUpdate();
             //close statement and connection
+            psInsert.close();
             statement.close();
             conn.close();
         }
@@ -107,9 +111,13 @@ public class cubes {
         try (Connection conn = DriverManager.getConnection(DB_CONNECTION_URL, USER, PASSWORD);
              Statement statement = conn.createStatement()) {
 
-            String query = "UPDATE cubes SET solve_time = " + newTime + " WHERE cube_solver = '" + solver + "'";
-            statement.execute(query);
+            String prepUpdateSQL = "UPDATE cubes SET solve_time = ( ? )WHERE cube_solver = ( ? )";
+            PreparedStatement psInsert = conn.prepareStatement(prepUpdateSQL);
+            psInsert.setFloat(1, newTime);
+            psInsert.setString(2, solver);
+            psInsert.executeUpdate();
             //close statement and connection
+            psInsert.close();
             statement.close();
             conn.close();
         }
