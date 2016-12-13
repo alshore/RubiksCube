@@ -1,89 +1,116 @@
+import com.sun.xml.internal.bind.v2.model.core.ID;
+
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.Scanner;
 
 public class cubes {
 
     static final String JDBC_DRIVER = "com.mysql.cj.jdbc.Driver";
     static final String DB_CONNECTION_URL = "jdbc:mysql://localhost:3306/rubiksDB";
+    static final String DB_NAME = "cubes";
     static final String USER = "andrew";
     static final String PASSWORD = "pickles";
-    private static Scanner s = new Scanner(System.in);
-    public static void main(String[] args) {
 
-        try {
-            Class.forName(JDBC_DRIVER);
-        } catch (ClassNotFoundException cnfe) {
-            System.out.println("Can't instantiate driver class; check you have drivers and classpath configured correctly?");
-            cnfe.printStackTrace();
+    static Statement statement = null;
+    static Connection conn = null;
+    static ResultSet rs = null;
+
+    public final static String RUBIKS_SOLVER_TABLE = "cubes";
+    public final static String PK_COLUMN = "id";
+
+    public final static String NAME_COLUMN = "solver";
+    public final static String TIME_COLUMN = "time";
+
+    public final static float SOLVE_TIME_MIN = 0;
+    public final static float SOLVE_TIME_MAX = 10000;
+
+    public static void main(String args[]) {
+
+        if (!setup()) {
             System.exit(-1);
         }
-        //open connection in try block
-        try (Connection conn = DriverManager.getConnection(DB_CONNECTION_URL, USER, PASSWORD);
-             Statement statement = conn.createStatement()) {
 
-//            String createTableSQL = "CREATE TABLE IF NOT EXISTS cubes (cube_solver varchar(30), solve_time FLOAT)";
-//            statement.executeUpdate(createTableSQL);
-//            System.out.println("Created Cubes table");
-//
-//            String addDataSQL = "INSERT INTO cubes VALUES ('Cubestormer II Robot', 5.270)";
-//            statement.executeUpdate(addDataSQL);
-//
-//            addDataSQL = "INSERT INTO cubes VALUES ('Fakhri Raihaan', 27.93)";
-//            statement.executeUpdate(addDataSQL);
-//
-//            addDataSQL = "INSERT INTO cubes VALUES ('Ruxin Liu', 99.33)";
-//            statement.executeUpdate(addDataSQL);
-//
-//            addDataSQL = "INSERT INTO cubes VALUES ('Mats Valk', 6.27)";
-//            statement.executeUpdate(addDataSQL);
+        if (!loadAllTimes()) {
+            System.exit(-1);
+        }
+        rubiksGui tableGUI = new rubiksGui(rubiksDataModel);
+    }
 
-        statement.close();
-        conn.close();
+    public static boolean loadAllTimes(){
+
+        try{
+
+            if (rs!=null) {
+                rs.close();
+            }
+
+            String getAllData = "SELECT * FROM CUBES";
+            rs = statement.executeQuery(getAllData);
+
+            if (rubiksDataModel == null) {
+                rubiksDataModel = new RubiksDataModel(rs);
+            } else {
+                rubiksDataModel.updateResultSet(rs);
+            }
+
+            return true;
+
+        } catch (Exception e) {
+            System.out.println("Could not load content");
+            System.out.println(e);
+            e.printStackTrace();
+            return false;
+        }
+
+    }
+
+    public static boolean setup(){
+        try {
+            try {
+                String Driver = "com.mysql.jdbc.Driver";
+                Class.forName(Driver);
+            } catch (ClassNotFoundException cnfe) {
+                System.out.println("No database drivers found. Quitting");
+                return false;
+            }
+
+            conn = DriverManager.getConnection(DB_CONNECTION_URL + DB_NAME, USER, PASSWORD);
+
+            statement = conn.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE);
+
+            //if not exists, create table.
+            if (!cubesTableExists()) {
+
+                //Create a table in the database with 3 columns: Movie title, year and rating
+                String createTableSQL = "CREATE TABLE " + RUBIKS_SOLVER_TABLE + " (" + PK_COLUMN + " int NOT NULL AUTO_INCREMENT, " + NAME_COLUMN + " varchar(50), " + TIME_COLUMN + " float, " +  PK_COLUMN + PK_COLUMN)));
+                System.out.println(createTableSQL);
+                statement.executeUpdate(createTableSQL);
+
+                System.out.println("Created movie_reviews table");
+                String addDataSQL = "INSERT INTO " + RUBIKS_SOLVER_TABLE + "(" + NAME_COLUMN + ", " + TIME_COLUMN + ")" + " VALUES ('', 5.65)";
+                statement.executeUpdate(addDataSQL);
+                addDataSQL = "INSERT INTO " + RUBIKS_SOLVER_TABLE +  "(" + NAME_COLUMN + ", " + TIME_COLUMN + ", " + " VALUES('', 4.85)";
+                statement.executeUpdate(addDataSQL);
+                addDataSQL = "INSERT INTO " + RUBIKS_SOLVER_TABLE +  "(" + NAME_COLUMN + ", " + TIME_COLUMN + ", " + " VALUES ('', 12.5)";
+                statement.executeUpdate(addDataSQL);
+            }
+            return true;
 
         } catch (SQLException se) {
-        se.printStackTrace();
+            System.out.println(se);
+            se.printStackTrace();
+            return false;
         }
-        // create array list of current cube solvers to search
-        ArrayList<String> solvers = new ArrayList<>();
-        try (Connection conn = DriverManager.getConnection(DB_CONNECTION_URL, USER, PASSWORD);
-             Statement statement = conn.createStatement()) {
-            String query = "SELECT cube_solver FROM cubes";
-            ResultSet rs = statement.executeQuery(query);
-            //while loop adds each found item to the solvers array list created
-            while (rs.next()) {
-                solvers.add(rs.getString("cube_solver"));
-            }
-            //close connection and statement
-            rs.close();
-            conn.close();
-        } catch (SQLException SQLe) {
-            System.out.println(SQLe);
+    }
+
+    private static boolean cubesTableExists() throws SQLException {
+
+        String checkTablePresentQuery = "SHOW TABLES LIKE '" + RUBIKS_SOLVER_TABLE + "'";
+        ResultSet tablesRS = statement.executeQuery(checkTablePresentQuery);
+        if (tablesRS.next()) {
+            return true;
         }
-        //get input from user for entering and/or updating times
-        System.out.println("Do you have a new puzzle solving time to enter (y for yes)?");
-        String again = s.nextLine();
-        //while block allows user to enter multiple new solvers and/or times
-        while (again.equalsIgnoreCase("y")) {
-            System.out.println("Please enter the name of the solver: ");
-            String solver = s.nextLine();
-            if (solvers.contains(solver)) {
-                System.out.println("Please enter a new time for " + solver + ":");
-                float newTime = s.nextFloat();
-                //calls addtime function for existing users
-                addTime(solver, newTime);
-                System.out.println("Time updated for " + solver + "!");
-            } else {
-                System.out.println("Please enter the solve time for " + solver);
-                float newTime = s.nextFloat();
-                //calls different function for new users
-                addNewSolverTime(solver, newTime);
-                System.out.println(solver + " has been added with a time of " + newTime);
-            }
-            //get input from user for entering new times or solvers
-            System.out.println("Do you have another solver or time to enter (y for yes)?");
-            again = s.nextLine();
-        }
+        return false;
+
     }
     //new solver and time function
     private static void addNewSolverTime(String solver, float newTime) {
@@ -125,4 +152,37 @@ public class cubes {
             System.out.println(SQLe);
         }
     }
+
+    public static void shutdown(){
+        try {
+            if (rs != null) {
+                rs.close();
+                System.out.println("Result set closed");
+            }
+        } catch (SQLException se) {
+            se.printStackTrace();
+        }
+
+        try {
+            if (statement != null) {
+                statement.close();
+                System.out.println("Statement closed");
+            }
+        } catch (SQLException se){
+            //Closing the connection could throw an exception too
+            se.printStackTrace();
+        }
+
+        try {
+            if (conn != null) {
+                conn.close();
+                System.out.println("Database connection closed");
+            }
+        }
+        catch (SQLException se) {
+            se.printStackTrace();
+        }
+    }
+
+    private static RubiksDataModel rubiksDataModel;
 }
